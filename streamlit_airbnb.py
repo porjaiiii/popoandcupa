@@ -1017,3 +1017,107 @@ except Exception as e:
     st.error(f"Error in KDE analysis: {e}")
 
     st.exception(e) 
+
+
+# ==============================================================================
+# 🧠 PART 2: MACHINE LEARNING INSIGHTS (APPEND TO BOTTOM OF APP.PY)
+# ==============================================================================
+
+st.divider()
+st.title("🤖 AI Future Forecasting")
+st.markdown("Predicting future ticket volumes using Random Forest Regression.")
+
+# Create Tabs
+tab1, tab2 = st.tabs(["🏙️ City-Wide Forecast", "📍 District Deep Dive"])
+
+# Load Data Function
+@st.cache_data
+def load_forecast_data():
+    try:
+        df_g = pd.read_csv("forecast_global.csv")
+        df_d = pd.read_csv("forecast_district.csv")
+        df_g['date'] = pd.to_datetime(df_g['date'])
+        df_d['date'] = pd.to_datetime(df_d['date'])
+        return df_g, df_d
+    except FileNotFoundError:
+        return None, None
+
+df_global, df_district = load_forecast_data()
+
+if df_global is None or df_district is None:
+    st.error("❌ Error: Files 'forecast_global.csv' and 'forecast_district.csv' not found.")
+else:
+    # --------------------------------------------------------------------------
+    # TAB 1: CITY-WIDE FORECAST
+    # --------------------------------------------------------------------------
+    with tab1:
+        st.subheader("Bangkok Total Ticket Volume")
+        total_actual = df_global['tickets'].sum()
+        total_pred = df_global['prediction'].sum()
+        
+        c1, c2 = st.columns(2)
+        c1.metric("Total Actual Tickets", f"{int(total_actual):,}")
+        c2.metric("Total AI Prediction", f"{int(total_pred):,}")
+
+        df_global_long = df_global.melt(id_vars='date', value_vars=['tickets', 'prediction'], var_name='Type', value_name='Volume')
+        fig_global = px.line(
+            df_global_long, x='date', y='Volume', color='Type',
+            title="Daily Ticket Volume: Actual vs AI Forecast",
+            color_discrete_map={"tickets": "#1f77b4", "prediction": "#ff7f0e"},
+            markers=True
+        )
+        st.plotly_chart(fig_global, use_container_width=True)
+
+    # --------------------------------------------------------------------------
+    # TAB 2: DISTRICT DEEP DIVE (UPDATED FOR MULTI-SELECT)
+    # --------------------------------------------------------------------------
+    with tab2:
+        st.subheader("District-Level Predictions")
+
+        col_d1, col_d2 = st.columns([1, 2])
+
+        with col_d1:
+            # 1. Multi-Select for District
+            dist_list = sorted(df_district['district'].unique())
+            
+            # Filter Logic
+            if not selected_district:
+                st.warning("Please select at least one district.")
+                df_d_filt = pd.DataFrame()
+                dist_pred_sum = 0
+            else:
+                # Filter for ALL selected districts
+                df_d_filt = df_district[df_district['district'].isin(selected_district)].copy()
+                
+                # Aggregate (Sum) values by Date (so we get one line for the total of selected districts)
+                df_d_agg = df_d_filt.groupby("date")[['tickets', 'prediction']].sum().reset_index()
+                
+                # Metric
+                dist_pred_sum = df_d_agg['prediction'].sum()
+                st.metric(f"Total Predicted Load ({len(selected_district)} Districts)", f"{int(dist_pred_sum):,} tickets")
+
+        with col_d2:
+            # Bar Chart: Top 10 Busiest Districts (Global view to help selection)
+            top_districts = df_district.groupby("district")['prediction'].sum().nlargest(10).reset_index()
+            fig_bar = px.bar(
+                top_districts, x='district', y='prediction',
+                title="Top 10 Districts by Predicted Workload",
+                labels={'prediction': 'Predicted Tickets'},
+                color='prediction', color_continuous_scale='Reds'
+            )
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+        # 3. Detailed Line Chart (Aggregated)
+        if selected_district and not df_d_filt.empty:
+            st.markdown(f"**Combined Trend Analysis:** {', '.join(selected_district)}")
+            
+            # Use the Aggregated DataFrame (df_d_agg) created above
+            df_d_long = df_d_agg.melt(id_vars='date', value_vars=['tickets', 'prediction'], var_name='Type', value_name='Volume')
+
+            fig_d = px.line(
+                df_d_long, x='date', y='Volume', color='Type',
+                markers=True,
+                color_discrete_map={"tickets": "#1f77b4", "prediction": "#ff7f0e"},
+                title=f"Aggregated Forecast for {len(selected_district)} Selected District(s)"
+            )
+            st.plotly_chart(fig_d, use_container_width=True)
