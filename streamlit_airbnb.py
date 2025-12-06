@@ -513,7 +513,7 @@ try:
 
                     "html": "<b>Cluster:</b> {cluster}<br/>"
 
-                            "<b>PM2.5 Value:</b> {pm25_value:.1f} μg/m³<br/>" # แก้ไข
+                            "<b>PM2.5 Value:</b> {pm25_value} μg/m³<br/>" # แก้ไข
 
                             "<b>Organization:</b> {organization}<br/>"         # แก้ไข
 
@@ -847,7 +847,7 @@ try:
 
                 "html": "<b>Flags:</b> {dominant_flags}<br/>"
 
-                        "<b>PM2.5 Value:</b> {pm25_value:.1f} μg/m³<br/>"
+                        "<b>PM2.5 Value:</b> {pm25_value} μg/m³<br/>"
 
                         "<b>Density:</b> {density_formatted}"
 
@@ -884,7 +884,7 @@ try:
 
                     "html": "<b>Flags:</b> {dominant_flags}<br/>"
 
-                            "<b>PM2.5 Value:</b> {pm25_value:.1f} μg/m³<br/>"
+                            "<b>PM2.5 Value:</b> {pm25_value} μg/m³<br/>"
 
                             "<b>Density:</b> {density_formatted}"
 
