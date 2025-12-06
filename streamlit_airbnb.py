@@ -361,47 +361,105 @@ with col4:
 
 st.header('PM2.5 Value Distribution')
 
-fig_hist = px.histogram(
-
-    filtered_data,
-
-    x='pm25_value',
-
-    nbins=50,  # You can adjust the number of bins
-
-    title='Distribution of PM2.5 Values for Filtered Reports',
-
-    labels={'pm25_value': 'PM2.5 Value (μg/m³)', 'count': 'Number of Reports'},
-
-)
-
-st.plotly_chart(fig_hist)
 
 
 
 # 11. แก้ไข: เปลี่ยน Price by neighborhood เป็น PM2.5 by District
 
-st.header('PM2.5 Value by District and Report Count')
+
 
 pm_by_district = filtered_data.groupby('district')['pm25_value'].agg(['mean', 'count']).reset_index()
 
 pm_by_district.columns = ['district', 'avg_pm25', 'report_count']
 
 
-fig_scatter = px.scatter(pm_by_district,
 
-                         x='report_count',
 
-                         y='avg_pm25',
 
-                         text='district',
+def get_aqi_category(pm25_value):
+    """
+    Assigns PM2.5 value to an AQI category string based on the provided thresholds.
+    These categories will be used as the color variable in Plotly.
+    """
+    if pm25_value <= 12.0:
+        return '1-ระดับดี (0-12.0)'
+    elif pm25_value <= 20.4:
+        return '2-ระดับพอใข้  (12.1-20.4)'
+    elif pm25_value <= 30.4:
+        return '3-ส่งผลต่อสุขภาพของกลุ่มเปราะบาง (20.5-30.4)'
+    elif pm25_value <= 38.4:
+        return '4-ส่งผลต่อสุขภาพ (30.5-38.4)'
+    elif pm25_value <= 60.4:
+        return '5-Very ส่งผลต่อสุขภาพ (38.5-60.4)'
+    else:
+        return '6-Hazardous (>60.4)'
 
-                         title='Average PM2.5 vs Number of Reports by District',
+pm_by_district['aqi_category'] = pm_by_district['avg_pm25'].apply(get_aqi_category)
+filtered_data['aqi_category'] = filtered_data['pm25_value'].apply(get_aqi_category)
 
-                         labels={'report_count': 'Number of Reports',
+aqi_categories = [
+    '1-ระดับดี (0-12.0)', 
+    '2-ระดับพอใข้  (12.1-20.4)', 
+    '3-ส่งผลต่อสุขภาพของกลุ่มเปราะบาง (20.5-30.4)', 
+    '4-ส่งผลต่อสุขภาพ (30.5-38.4)', 
+    '5-อันตรายต่อสุขภาพ (38.5-60.4)', 
+    '6-Hazardous (>60.4)'
+]
 
-                                'avg_pm25': 'Average PM2.5 (μg/m³)'})
 
+aqi_color_map = {
+    '1-ระดับดี (0-12.0)': 'rgb(0, 228, 0)',        # Green
+    '2-ระดับพอใข้  (12.1-20.4)': 'rgb(255, 255, 0)',     # Yellow
+    '3-ส่งผลต่อสุขภาพของกลุ่มเปราะบาง (20.5-30.4)': 'rgb(255, 126, 0)', # Orange
+    '4-ส่งผลต่อสุขภาพ (30.5-38.4)': 'rgb(255, 0, 0)',        # Red
+    '5-อันตรายต่อสุขภาพ (38.5-60.4)': 'rgb(153, 0, 76)',   # Purple
+    '6-Hazardous (>60.4)': 'rgb(126, 0, 35)'     # Dark Red/Maroon
+}
+fig_hist = px.histogram(
+    filtered_data,
+    x='pm25_value',
+   
+    color='aqi_category',
+   
+    color_discrete_map=aqi_color_map, 
+ 
+    category_orders={'aqi_category': aqi_categories},
+    # --------------------------------------------------------------------------
+    nbins=50,
+    title='Distribution of PM2.5 Values for Filtered Reports',
+    labels={'pm25_value': 'PM2.5 Value (μg/m³)', 
+            'count': 'Number of Reports',
+            'aqi_category': 'Air Quality Level'},
+    height=450
+)
+
+
+fig_hist.update_layout(bargap=0.05) 
+
+st.plotly_chart(fig_hist)
+
+
+st.header('PM2.5 Value by District and Report Count')
+
+
+fig_scatter = px.scatter(
+    pm_by_district,
+    x='report_count',
+    y='avg_pm25',
+    text='district',
+    title='Average PM2.5 vs Number of Reports by District',
+    labels={
+        'report_count': 'Number of Reports',
+        'avg_pm25': 'Average PM2.5 (μg/m³)',
+        'aqi_category': 'Air Quality Level' # Label สำหรับสี
+    },
+    # <<< ใช้คอลัมน์ AQI Category ในการระบายสี >>>
+    color='aqi_category', 
+    
+    # กำหนดลำดับและชุดสี
+    category_orders={'aqi_category': aqi_categories},
+    color_discrete_map=aqi_color_map
+)
 fig_scatter.update_traces(textposition='top center')
 
 st.plotly_chart(fig_scatter)
@@ -736,34 +794,49 @@ try:
 
     # --- 2. PM2.5 Value Color Mapping (ใช้สำหรับ Hexagon Layer - เขียว-แดง) ---
 
-    pm_min = filtered_data['pm25_value'].min()
+    # pm_min = filtered_data['pm25_value'].min()
 
-    pm_max = filtered_data['pm25_value'].max()
+    # pm_max = filtered_data['pm25_value'].max()
 
    
 
     # Normalize PM2.5 Value
 
-    filtered_data['pm25_normalized'] = (filtered_data['pm25_value'] - pm_min) / (pm_max - pm_min)
+    # filtered_data['pm25_normalized'] = (filtered_data['pm25_value'] - pm_min) / (pm_max - pm_min)
 
 
-    def pm25_to_color(pm25_normalized):
+    def pm25_to_color(pm25_value):
+        """
+        Convert raw PM2.5 value (µg/m³) to an RGB color based on US EPA AQI standards.
+        The Alpha (opacity) value is set to 200.
+        """
+        # 0 - 12.0: Green (ระดับดี)
+        if pm25_value <= 12.0:
+            return [0, 228, 0, 200]
+        
+        # 12.1 - 35.4: Yellow (ระดับพอใข้ )
+        elif pm25_value <= 20.4:
+            return [255, 255, 0, 200]
+        
+        # 35.5 - 55.4: Orange (ส่งผลต่อสุขภาพของกลุ่มเปราะบาง)
+        elif pm25_value <= 30.4:
+            return [255, 126, 0, 200]
+        
+        # 55.5 - 150.4: Red (ส่งผลต่อสุขภาพ)
+        elif pm25_value <= 38.4:
+            return [255, 0, 0, 200]
+            
+        # 150.5 - 250.4: Purple (Very ส่งผลต่อสุขภาพ)
+        elif pm25_value <= 60.4:
+            return [153, 0, 76, 200]
+            
+        # 250.5 and up: Dark Red/Maroon (Hazardous)
+        else:
+            return [126, 0, 35, 200]
+        
 
-        """Convert normalized PM2.5 (0 to 1) to RGB color (Green to Red gradient)"""
 
-        r = int(pm25_normalized * 255)
-
-        g = int((1 - pm25_normalized) * 255)
-
-        b = 0
-
-        return [r, g, b, 200]
-
-   
-
-    # Apply PM2.5 color mapping
-
-    filtered_data['pm25_color'] = filtered_data['pm25_normalized'].apply(pm25_to_color)
+    filtered_data['pm25_color'] = filtered_data['pm25_value'].apply(pm25_to_color)
 
    
 
@@ -900,44 +973,30 @@ try:
 
             # 2. Hexagon Layer (Layer ฐาน - สีตาม PM2.5 Value)
 
+        # 2. Hexagon Layer (Layer ฐาน - สีตาม PM2.5 Value)
         if show_hexagon:
-
             general_hexagon_layer = pdk.Layer(
-
                 'HexagonLayer',
-
                 data=filtered_data,
-
                 get_position='[longitude, latitude]',
+                radius=200,
 
-                radius=500,
+       
 
-                # ความสูงยังคงเป็นตามจำนวนรายงาน (Count)
+              
+           
+                opacity=0.5,
+                coverage=1.0,
 
-                elevation_scale=200, # ให้สูงไว้ก่อน
-
-                elevation_range=[0, 1000],
-
-            
-
-                # <<< การแก้ไขที่สำคัญ: ใช้ String 'mean' แทน Enum ที่พัง >>>
-
-                get_color='pm25_color',
-
-                color_aggregation='mean', # เปลี่ยนจาก pdk.types.AGGR_FUNCTIONS.MEAN เป็น 'mean'
-
-            
-
-                pickable=True,
-
-                extruded=True,
-
-                opacity=0.3,
-
-                coverage=1.0
-
+                tooltip={
+                "html": "<b>Avg. PM2.5:</b> {elevationValue} µg/m³<br/>"
+                        "<b>Data Points:</b> {pointCount}",
+                "style": {
+                    "backgroundColor": "darkgrey",
+                    "color": "white"
+                }
+            }
             )
-
             layers_to_show.append(general_hexagon_layer)
 
 
@@ -1024,7 +1083,7 @@ except Exception as e:
 # ==============================================================================
 
 st.divider()
-st.title("🤖 AI Future Forecasting")
+st.title(" AI Future Forecasting")
 st.markdown("Predicting future ticket volumes using Random Forest Regression.")
 
 # Create Tabs
@@ -1045,7 +1104,7 @@ def load_forecast_data():
 df_global, df_district = load_forecast_data()
 
 if df_global is None or df_district is None:
-    st.error("❌ Error: Files 'forecast_global.csv' and 'forecast_district.csv' not found.")
+    st.error(" Error: Files 'forecast_global.csv' and 'forecast_district.csv' not found.")
 else:
     # --------------------------------------------------------------------------
     # TAB 1: CITY-WIDE FORECAST
