@@ -317,12 +317,6 @@ filtered_data['dominant_flags'] = filtered_data.apply(
 # *** END NEW LOGIC ***
 
 
-
-# Main content - Key metrics
-
-st.subheader(f"Total Reports Matching Filters: {len(filtered_data):,}")
-
-
 # Main content - Key metrics
 
 st.subheader(f"Total Reports Matching Filters: {len(filtered_data):,}")
@@ -687,7 +681,7 @@ except Exception as e:
     st.exception(e)
 
 
-st.header('Kernel Density Estimation (KDE) Analysis)')
+st.header('Kernel Density Estimation (KDE) Analysis VS Hexagon Analysis')
 
 
 try:
@@ -805,71 +799,11 @@ try:
    
 
     # KDE Scatterplot Layer (Standalone map)
+    c1,c2 = st.columns(2)
+    with c1:
+        st.subheader('KDE Ticket_Report') # <<< เปลี่ยนชื่อกลับไป
 
-    st.subheader('KDE Density Scatterplot (Standalone)') # <<< เปลี่ยนชื่อกลับไป
-
-    kde_layer_standalone = pdk.Layer(
-
-        "ScatterplotLayer",
-
-        filtered_data,
-
-        get_position="[longitude, latitude]",
-
-        get_color='density_color', # <<< ใช้สี Density (ฟ้า-แดง)
-
-        get_radius=50,
-
-        opacity=0.5,
-
-        pickable=True,
-
-    )
-
-   
-
-    st.pydeck_chart(
-
-        pdk.Deck(
-
-            layers=[kde_layer_standalone],
-
-            initial_view_state=pdk.ViewState(
-
-                latitude=filtered_data['latitude'].mean(),
-
-                longitude=filtered_data['longitude'].mean(),
-
-                zoom=11,
-
-                pitch=0
-
-            ),
-
-            map_style=MAP_STYLES[map_style],
-
-            tooltip={
-
-            "html": "<b>Flags:</b> {dominant_flags}<br/>"
-
-                    "<b>PM2.5 Value:</b> {pm25_value:.1f} μg/m³<br/>"
-
-                    "<b>Density:</b> {density_formatted}"
-
-            }
-
-        ),
-
-        height=600
-
-    )
-
-    st.header('Combined Map: PM2.5 Value (Hexagon) vs KDE Density (Scatterplot)')
-
-
-        # 1. KDE Scatterplot Layer (Layer ที่อยู่ด้านบนสุด - สีตาม Density)
-
-    density_scatter_layer = pdk.Layer(
+        kde_layer_standalone = pdk.Layer(
 
             "ScatterplotLayer",
 
@@ -879,13 +813,37 @@ try:
 
             get_color='density_color', # <<< ใช้สี Density (ฟ้า-แดง)
 
-            get_radius=20,  # <<< ลดรัศมีเหลือ 20 เพื่อลดการบดบัง
+            get_radius=50,
 
-            opacity=0.8,
+            opacity=0.5,
 
             pickable=True,
 
-            tooltip={
+        )
+
+    
+
+        st.pydeck_chart(
+
+            pdk.Deck(
+
+                layers=[kde_layer_standalone],
+
+                initial_view_state=pdk.ViewState(
+
+                    latitude=filtered_data['latitude'].mean(),
+
+                    longitude=filtered_data['longitude'].mean(),
+
+                    zoom=11,
+
+                    pitch=45
+
+                ),
+
+                map_style=MAP_STYLES[map_style],
+
+                tooltip={
 
                 "html": "<b>Flags:</b> {dominant_flags}<br/>"
 
@@ -893,90 +851,127 @@ try:
 
                         "<b>Density:</b> {density_formatted}"
 
-            }
-
-    )
-
-       
-
-    layers_to_show = []
-
-       
-
-        # 2. Hexagon Layer (Layer ฐาน - สีตาม PM2.5 Value)
-
-    if show_hexagon:
-
-        general_hexagon_layer = pdk.Layer(
-
-            'HexagonLayer',
-
-            data=filtered_data,
-
-            get_position='[longitude, latitude]',
-
-            radius=500,
-
-            # ความสูงยังคงเป็นตามจำนวนรายงาน (Count)
-
-            elevation_scale=200, # ให้สูงไว้ก่อน
-
-            elevation_range=[0, 1000],
-
-           
-
-            # <<< การแก้ไขที่สำคัญ: ใช้ String 'mean' แทน Enum ที่พัง >>>
-
-            get_color='pm25_color',
-
-            color_aggregation='mean', # เปลี่ยนจาก pdk.types.AGGR_FUNCTIONS.MEAN เป็น 'mean'
-
-           
-
-            pickable=True,
-
-            extruded=True,
-
-            opacity=0.3,
-
-            coverage=1.0
-
-        )
-
-        layers_to_show.append(general_hexagon_layer)
-
-
-        # 3. Scatterplot ต้องอยู่ด้านบนเสมอ
-
-    layers_to_show.append(density_scatter_layer)
-
-
-
-    st.pydeck_chart(
-
-        pdk.Deck(
-
-            layers=layers_to_show,
-
-            initial_view_state=pdk.ViewState(
-
-                latitude=filtered_data['latitude'].mean(),
-
-                longitude=filtered_data['longitude'].mean(),
-
-                zoom=11,
-
-                pitch=45
+                }
 
             ),
 
-            map_style=MAP_STYLES[map_style],
+            height=600
 
-        ),
+        )
+    with c2:
+        st.subheader('Hexagon PM Value')
 
-        height=600
 
-    )
+            # 1. KDE Scatterplot Layer (Layer ที่อยู่ด้านบนสุด - สีตาม Density)
+
+        density_scatter_layer = pdk.Layer(
+
+                "ScatterplotLayer",
+
+                filtered_data,
+
+                get_position="[longitude, latitude]",
+
+                get_color='density_color', # <<< ใช้สี Density (ฟ้า-แดง)
+
+                get_radius=20,  # <<< ลดรัศมีเหลือ 20 เพื่อลดการบดบัง
+
+                opacity=0.8,
+
+                pickable=True,
+
+                tooltip={
+
+                    "html": "<b>Flags:</b> {dominant_flags}<br/>"
+
+                            "<b>PM2.5 Value:</b> {pm25_value:.1f} μg/m³<br/>"
+
+                            "<b>Density:</b> {density_formatted}"
+
+                }
+
+        )
+
+        
+
+        layers_to_show = []
+
+        
+
+            # 2. Hexagon Layer (Layer ฐาน - สีตาม PM2.5 Value)
+
+        if show_hexagon:
+
+            general_hexagon_layer = pdk.Layer(
+
+                'HexagonLayer',
+
+                data=filtered_data,
+
+                get_position='[longitude, latitude]',
+
+                radius=500,
+
+                # ความสูงยังคงเป็นตามจำนวนรายงาน (Count)
+
+                elevation_scale=200, # ให้สูงไว้ก่อน
+
+                elevation_range=[0, 1000],
+
+            
+
+                # <<< การแก้ไขที่สำคัญ: ใช้ String 'mean' แทน Enum ที่พัง >>>
+
+                get_color='pm25_color',
+
+                color_aggregation='mean', # เปลี่ยนจาก pdk.types.AGGR_FUNCTIONS.MEAN เป็น 'mean'
+
+            
+
+                pickable=True,
+
+                extruded=True,
+
+                opacity=0.3,
+
+                coverage=1.0
+
+            )
+
+            layers_to_show.append(general_hexagon_layer)
+
+
+            # 3. Scatterplot ต้องอยู่ด้านบนเสมอ
+
+        layers_to_show.append(density_scatter_layer)
+
+
+
+        st.pydeck_chart(
+
+            pdk.Deck(
+
+                layers=layers_to_show,
+
+                initial_view_state=pdk.ViewState(
+
+                    latitude=filtered_data['latitude'].mean(),
+
+                    longitude=filtered_data['longitude'].mean(),
+
+                    zoom=11,
+
+                    pitch=45
+
+                ),
+
+                map_style=MAP_STYLES[map_style],
+
+            ),
+
+            height=600
+
+        )
 
     # --- End Combined Map ---
 
